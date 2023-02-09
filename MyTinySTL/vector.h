@@ -64,20 +64,22 @@ public:
   allocator_type get_allocator() { return data_allocator(); }
 
 private:
+  // /存在三个迭代器
   iterator begin_;  // 表示目前使用空间的头部
   iterator end_;    // 表示目前使用空间的尾部
   iterator cap_;    // 表示目前储存空间的尾部
 
 public:
   // 构造、复制、移动、析构函数
+  // /默认构造函数，分配16 个T类型大小空间
   vector() noexcept
   { try_init(); }
 
   explicit vector(size_type n)
-  { fill_init(n, value_type()); }
+  { fill_init(n, value_type()); } // / 设置为value_type的默认值
 
   vector(size_type n, const value_type& value)
-  { fill_init(n, value); }
+  { fill_init(n, value); } // /指定特定的值初始化。
 
   template <class Iter, typename std::enable_if<
     mystl::is_input_iterator<Iter>::value, int>::type = 0>
@@ -91,7 +93,7 @@ public:
   {
     range_init(rhs.begin_, rhs.end_);
   }
-
+// / 移动构造函数
   vector(vector&& rhs) noexcept
     :begin_(rhs.begin_),
     end_(rhs.end_),
@@ -101,7 +103,7 @@ public:
     rhs.end_ = nullptr;
     rhs.cap_ = nullptr;
   }
-
+  // / 初始化列表进行初始化
   vector(std::initializer_list<value_type> ilist)
   {
     range_init(ilist.begin(), ilist.end());
@@ -109,7 +111,7 @@ public:
 
   vector& operator=(const vector& rhs);
   vector& operator=(vector&& rhs) noexcept;
-
+  // /从初始化列表的赋值也要考虑
   vector& operator=(std::initializer_list<value_type> ilist)
   {
     vector tmp(ilist.begin(), ilist.end());
@@ -159,7 +161,7 @@ public:
   size_type size()     const noexcept
   { return static_cast<size_type>(end_ - begin_); }
   size_type max_size() const noexcept
-  { return static_cast<size_type>(-1) / sizeof(T); }
+  { return static_cast<size_type>(-1) / sizeof(T); } // / 64位系统所能容纳的最大个数
   size_type capacity() const noexcept
   { return static_cast<size_type>(cap_ - begin_); }
   void      reserve(size_type n);
@@ -176,6 +178,7 @@ public:
     MYSTL_DEBUG(n < size());
     return *(begin_ + n);
   }
+  // /先检查是否越界，然后再调用[]
   reference at(size_type n)
   {
     THROW_OUT_OF_RANGE_IF(!(n < size()), "vector<T>::at() subscript out of range");
@@ -207,7 +210,7 @@ public:
     MYSTL_DEBUG(!empty());
     return *(end_ - 1);
   }
-
+  // / data() 用来直接访问底层的array，返回底层容器的指针。
   pointer       data()       noexcept { return begin_; }
   const_pointer data() const noexcept { return begin_; }
 
@@ -235,19 +238,19 @@ public:
   iterator emplace(const_iterator pos, Args&& ...args);
 
   template <class... Args>
-  void emplace_back(Args&& ...args);
+  void emplace_back(Args&& ...args); // / 直接通过完美转发构造。
 
   // push_back / pop_back
 
-  void push_back(const value_type& value);
+  void push_back(const value_type& value); // / 传入参数如果不是value_type，需要先隐式构造
   void push_back(value_type&& value)
-  { emplace_back(mystl::move(value)); }
+  { emplace_back(mystl::move(value)); } // / 因为右值引用是左值，因此先转为右值。
 
   void pop_back();
 
   // insert
 
-  iterator insert(const_iterator pos, const value_type& value);
+  iterator insert(const_iterator pos, const value_type& value); // /底层调用emplace
   iterator insert(const_iterator pos, value_type&& value)
   { return emplace(pos, mystl::move(value)); }
 
@@ -414,7 +417,7 @@ vector<T>::emplace(const_iterator pos, Args&& ...args)
     auto new_end = end_;
     data_allocator::construct(mystl::address_of(*end_), *(end_ - 1));
     ++new_end;
-    mystl::copy_backward(xpos, end_ - 1, end_);
+    mystl::copy_backward(xpos, end_ - 1, end_); // / xpos后面的元素，整体向后移一个
     *xpos = value_type(mystl::forward<Args>(args)...);
     end_ = new_end;
   }
@@ -551,6 +554,7 @@ void vector<T>::swap(vector<T>& rhs) noexcept
 // helper function
 
 // try_init 函数，若分配失败则忽略，不抛出异常
+// 初始分配16个大小
 template <class T>
 void vector<T>::try_init() noexcept
 {
@@ -569,6 +573,7 @@ void vector<T>::try_init() noexcept
 }
 
 // init_space 函数
+// /为data分配空间 ,大小取决于传入的cap
 template <class T>
 void vector<T>::init_space(size_type size, size_type cap)
 {
@@ -592,8 +597,8 @@ template <class T>
 void vector<T>::
 fill_init(size_type n, const value_type& value)
 {
-  const size_type init_size = mystl::max(static_cast<size_type>(16), n);
-  init_space(n, init_size);
+  const size_type init_size = mystl::max(static_cast<size_type>(16), n); // / 至少分配16个T的空间
+  init_space(n, init_size); // /
   mystl::uninitialized_fill_n(begin_, n, value);
 }
 
@@ -643,6 +648,7 @@ template <class T>
 void vector<T>::
 fill_assign(size_type n, const value_type& value)
 {
+  // / 都是分三种情况处理
   if (n > capacity())
   {
     vector tmp(n, value);
@@ -865,6 +871,7 @@ copy_insert(iterator pos, IIter first, IIter last)
 }
 
 // reinsert 函数
+// / 重新申请size（）大小空间，然后复制过来，再删除旧的
 template <class T>
 void vector<T>::reinsert(size_type size)
 {

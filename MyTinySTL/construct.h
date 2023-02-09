@@ -23,7 +23,7 @@ namespace mystl
 template <class Ty>
 void construct(Ty* ptr)
 {
-  ::new ((void*)ptr) Ty();
+  ::new ((void*)ptr) Ty(); // / 将Ty()对象place 在ptr指向的位置。
 }
 
 template <class Ty1, class Ty2>
